@@ -42,7 +42,7 @@ f.teamdb.query <- function(dataset) {
     data_3 <- fetch(cl_3_data, n = -1)
     data_3["protocol"] <- 3 # Mark records as climate protocol 3
     
-    #** Get Cliamte 2.0 data from climate_samples table 
+    #** Get Clamate 2.0 data from climate_samples table 
     cl_2_data <- dbSendQuery(con,"select collection_sampling_units.id, collection_sampling_units.sampling_unit_id, collections.site_id, climate_samples.id, climate_samples.collection_sampling_unit_id, climate_samples.collected_at, climate_samples.collected_time, climate_samples.dry_temperature as airtc_avg, climate_samples.precipitation as rain_mm_tot, climate_samples.temp1_keep,climate_samples.temp2_keep, climate_samples.temp_clean, climate_samples.precip_clean, climate_samples.climate_review from collection_sampling_units, collections, climate_samples where collection_sampling_units.collection_id = collections.id and collection_sampling_units.id = climate_samples.collection_sampling_unit_id")
     data_2 <- fetch(cl_2_data, n = -1)
     data_2["protocol"] <- 2 # Mark records as climate protocol 2

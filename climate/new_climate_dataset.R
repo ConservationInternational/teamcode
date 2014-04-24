@@ -62,3 +62,6 @@ colnames(data_2_new)<-c('ReferenceID','Observation','RecordID','MinimumBatteryVo
 
 # Combine climate 2.0 and 3.0 dataasets 
 cl_data_all = rbind(data_3,data_2_new)
+sysdate = Sys.Date()
+filename= paste("cl_data_new",sysdate,".gzip",sep="")
+save(cl_data_all, file=filename,compress="gzip")

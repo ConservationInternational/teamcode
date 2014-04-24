@@ -18,8 +18,8 @@ load("ct_data2014-04-02.gzip")
 
 # Order data by: Smapling Period, Sampling unit name and Photo Taken Time
 ## Temp code to to generate data for one site
-#order_data <- f.order.data(animals) # Small dataset for testing
-order_data <- f.order.data(cam_trap_data)
+order_data <- f.order.data(animals) # Small dataset for testing
+#order_data <- f.order.data(cam_trap_data)
 # Seperate into events
 #CAUTION: this function removes records that are NOT images (e.g. Sampling Date records)
 data1<-f.separate.events(order_data,5) #the entire grp column  is what makes it unique

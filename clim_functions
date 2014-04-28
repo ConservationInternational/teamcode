@@ -1,0 +1,125 @@
+require(stringr)
+require(lubridate)
+require(compiler)
+require(ggplot2)
+
+#Performs range test on relative humidity based on Estevez et al. (2011)####
+#RH acceptable range = 0-100%
+f.rh.r1 <- function(data) {
+  #Vectorize and format the relative humidity data
+  rh.1 <- as.numeric(data$Sensor1_RelativeHumidity)
+  rh.2 <- as.numeric(data$Sensor2_RelativeHumidity)
+  rh.3 <- as.numeric(data$Sensor3_RelativeHumidity)
+  #Index rows that fail the first/only range test for relative humidity
+  rh.1.fail.r1 <- which(rh.1 < 0 | rh.1 > 100)
+  rh.2.fail.r1 <- which(rh.2 < 0 | rh.2 > 100)
+  rh.3.fail.r1 <- which(rh.3 < 0 | rh.3 > 100)
+  #Create a dataframe with results of the test
+  final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
+                         TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, rh.1 = rh.1,
+                         rh.1.rangeTest = NA, rh.2 = rh.2, rh.2.rangeTest = NA, rh.3 = rh.3, rh.3.rangeTest = NA)
+  #Use the failed test index to store the error code
+  final.df$rh.1.rangeTest[rh.1.fail.r1] <- 'R1'
+  final.df$rh.2.rangeTest[rh.2.fail.r1] <- 'R1'
+  final.df$rh.3.rangeTest[rh.3.fail.r1] <- 'R1'
+  #Replace NAs with a blank
+  final.df$rh.1.rangeTest[is.na(final.df$rh.1.rangeTest)] <- ' '
+  final.df$rh.2.rangeTest[is.na(final.df$rh.2.rangeTest)] <- ' '
+  final.df$rh.3.rangeTest[is.na(final.df$rh.3.rangeTest)] <- ' '
+  return(final.df)
+}
+
+#Performs first range test on temperature based on Estevez et al. (2011)####
+#Acceptable values fall between -30 and 50; revisit these numbers (Africa max high is 55--WMO)
+f.temp.r1 <- function(data) {
+  #Vectorize and format the temperature data
+  temp.1 <- as.numeric(data$Sensor1_AvgTemp)
+  temp.2 <- as.numeric(data$Sensor2_AvgTemp)
+  temp.3 <- as.numeric(data$Sensor3_AvgTemp)
+  #Index rows that have failed the range test for temperature
+  temp.1.fail.r1 <- which(temp.1 < -30 | temp.1 > 50)
+  temp.2.fail.r1 <- which(temp.2 < -30 | temp.2 > 50)
+  temp.3.fail.r1 <- which(temp.3 < -30 | temp.3 > 50)
+  #Create a dataframe with results of the test
+  final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
+                         TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, temp.1 = temp.1,
+                         temp.1.rangeTest = NA, temp.2 = temp.2, temp.2.rangeTest = NA, temp.3 = temp.3,
+                         temp.3.rangeTest = NA)
+  #Use the failed test index to store the error code
+  final.df$temp.1.rangeTest[temp.1.fail.r1] <- 'R1'
+  final.df$temp.2.rangeTest[temp.2.fail.r1] <- 'R1'
+  final.df$temp.3.rangeTest[temp.3.fail.r1] <- 'R1'
+  #Replace NAs with a blank
+  final.df$temp.1.rangeTest[is.na(final.df$temp.1.rangeTest)] <- ' '
+  final.df$temp.2.rangeTest[is.na(final.df$temp.2.rangeTest)] <- ' '
+  final.df$temp.3.rangeTest[is.na(final.df$temp.3.rangeTest)] <- ' '
+  return(final.df)
+}
+
+#Performs second range test on temperature based on Estevez et al. (2011)--UNDER CONSTRUCTION####
+#Need to find an accurate list of country max/min temperatures; ideally long-term stations close to TEAM station
+
+#Performs first range test on rainfall based on Estevez et al. (2011)####
+#NEED TO PASTE TIME AND DATE (JUST DATE NOW) PRIOR TO JUNE 2010; FOR VB AT LEAST
+f.rain.r1 <- function(data) {
+  #Vectorize and format the rain data
+  rain <- as.numeric(data$Rainfall)
+  #Format observation date as POSIX
+  data$Observation <- ymd_hms(data$Observation)
+  #Store the first day of the data (where to start the interval)
+  start.date <- min(data$Observation) #ymd('2010-07-01')
+  #Create a vector to store the index info for failed tests
+  rain.fail.r1 <- vector()
+  #Create a half hour interval window to select data during that period
+  int <- new_interval(start = start.date, end = start.date + minutes(30))
+  #For each record use the interval to index data and then sum rainfall measurements
+  for(i in 1:10000) {
+    #If data is missing for a particular interval, shift the interval by five minutes and start again
+    #at next record
+    if(length(which(data$Observation %within% int)) == 0) {
+      int <- int_shift(int = int, by = minutes(5))
+    } else {
+      #If the interval exists in the data, sum the data over the interval
+      half.hr.sum <- sum(rain[which(data$Observation %within% int)])
+      #If the sum of the interval is greater than 250 or less than 0, store the row number in the index
+      if(half.hr.sum > 250 | half.hr.sum < 0) {
+        rain.fail.r1[i] <- which(data$Observation %within% int)[1]
+      }
+      #After storing the row number, shift the interval by five minutes and start again at next record
+      int <- int_shift(int = int, by = minutes(5))
+    }
+  }
+  #Create a dataframe with results of the test
+  final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
+                         TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, rain = rain,
+                         rain.rangeTest = NA)
+  #Remove NAs that were introduced to the failed test index
+  rain.fail.r1 <- rain.fail.r1[!is.na(rain.fail.r1)]
+  #Use the failed test index to store the error code
+  final.df$rain.rangeTest[rain.fail.r1] <- 'R1'
+  #Replace NAs with a blank
+  final.df$rain.rangeTest[is.na(final.df$rain.rangeTest)] <- ' '
+  return(final.df)
+}
+
+#Performs second range test on rainfall based on Estevez et al. (2011)####
+f.rain.r2 <- function(data) {
+  data$Observation <- ymd_hms(data$Observation)
+  rain <- as.numeric(data$Rainfall)
+  TempDay <- floor_date(data$Observation, 'day')
+  Daily.Climate.Data <- data.frame(Rain = tapply(rain, TempDay, sum))
+  rain.fail.r2 <- as.vector(which(Daily.Climate.Data$Rain > 500 | Daily.Climate.Data$Rain < 0))
+  dates.fail <- ymd(row.names(Daily.Climate.Data)[rain.fail.r2])
+  rain.fail.r2 <- which(TempDay %in% dates.fail)
+  #Create a dataframe with results of the test
+  final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
+                         TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, rain = rain,
+                         rain.rangeTest = NA)
+  #Use the failed test index to store the error code
+  final.df$rain.rangeTest[rain.fail.r2] <- 'R2'
+  #Replace NAs with a blank
+  final.df$rain.rangeTest[is.na(final.df$rain.rangeTest)] <- ' '
+  return(final.df)
+}
+#head(str_split_fixed(data$Observation, pattern = ' ', 2))
+#strsplit(data$Observation, ' ')

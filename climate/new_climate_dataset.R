@@ -15,7 +15,8 @@ cl_2_data <- dbSendQuery(con,"SELECT * FROM dqa_climate2_analysis")
 data_2 <- fetch(cl_2_data, n = -1)
 # Get data_2 to match the structure of data_3
 # Create new columns
-data_2$Observation <- paste(data_2$ObservationDate,data_2$ObservationTime)
+data_2$collected_at <- paste(data_2$collected_at,data_2$collected_time)
+data_2$Observation <-data_2$collected_at
 setnames(data_2,"Id","ReferenceID")
 setnames(data_2,"TotalSolarRadiation","Sensor1_TotalSolarRadiation")
 setnames(data_2,"Precipitation","Rainfall")
@@ -59,7 +60,7 @@ colnames(data_2_new)<-c('ReferenceID','Observation','RecordID','MinimumBatteryVo
                         'Sensor2_TotalSolarRadiation','Rainfall','SerialNumber','ProgramName','OperatingSystem',
                         'Tachometer_RPM','ProtocolVersion','SamplingUnitName','Latitude',
                         'Longitude','TEAMSiteName')
-
+####
 # Combine climate 2.0 and 3.0 dataasets 
 cl_data_all = rbind(data_3,data_2_new)
 sysdate = Sys.Date()

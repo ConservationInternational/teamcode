@@ -189,7 +189,7 @@ for (n in which(site_codes %in% sites_to_plot)) {
     #          autobrowse=FALSE,
     #          title=paste(site_name, 'forest change'))
  
-    # Uncomment below for mp4 output
+    # Uncomment below for movie output
     ani.options(ffmpeg="C:/Program Files/ffmpeg/bin/ffmpeg.exe",
                 ani.width=width*dpi, ani.height=height*dpi, verbose=TRUE,
                 outdir=getwd())
@@ -198,8 +198,10 @@ for (n in which(site_codes %in% sites_to_plot)) {
                        make_frame(year_num)
                    }
               },
-             video.name = paste0(out_basename, '.mp4'),
-             other.opts = '-f mp4 -preset slow -r 25')
-             #other.opts = "-f mp4 -r 800 -preset veryslow -qp 0")
+             video.name = paste0(out_basename, '.mov'),
+             # For Mac:
+             other.opts = '-preset slow -r 25 -pix_fmt yuv420p')
+             # For PC:
+             #other.opts = '-f mp4 -preset slow -r 25')
 
 }

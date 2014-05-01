@@ -14,7 +14,7 @@ f.rh.r1 <- function(data) {
   rh.1.fail.r1 <- which(rh.1 < 0 | rh.1 > 100)
   rh.2.fail.r1 <- which(rh.2 < 0 | rh.2 > 100)
   rh.3.fail.r1 <- which(rh.3 < 0 | rh.3 > 100)
-  #Create a dataframe with results of the test
+  #Create a data frame with results of the test
   final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
                          TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, rh.1 = rh.1,
                          rh.1.rangeTest = NA, rh.2 = rh.2, rh.2.rangeTest = NA, rh.3 = rh.3, rh.3.rangeTest = NA)
@@ -40,7 +40,7 @@ f.temp.r1 <- function(data) {
   temp.1.fail.r1 <- which(temp.1 < -30 | temp.1 > 50)
   temp.2.fail.r1 <- which(temp.2 < -30 | temp.2 > 50)
   temp.3.fail.r1 <- which(temp.3 < -30 | temp.3 > 50)
-  #Create a dataframe with results of the test
+  #Create a data frame with results of the test
   final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
                          TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, temp.1 = temp.1,
                          temp.1.rangeTest = NA, temp.2 = temp.2, temp.2.rangeTest = NA, temp.3 = temp.3,
@@ -60,6 +60,7 @@ f.temp.r1 <- function(data) {
 #Need to find an accurate list of country max/min temperatures; ideally long-term stations close to TEAM station
 
 #Performs first range test on rainfall based on Estevez et al. (2011)####
+#Acceptable values fall between 0 and 250 mm over a half hour period
 #NEED TO PASTE TIME AND DATE (JUST DATE NOW) PRIOR TO JUNE 2010; FOR VB AT LEAST
 f.rain.r1 <- function(data) {
   #Vectorize and format the rain data
@@ -89,7 +90,7 @@ f.rain.r1 <- function(data) {
       int <- int_shift(int = int, by = minutes(5))
     }
   }
-  #Create a dataframe with results of the test
+  #Create a data frame with results of the test
   final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
                          TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, rain = rain,
                          rain.rangeTest = NA)
@@ -103,15 +104,23 @@ f.rain.r1 <- function(data) {
 }
 
 #Performs second range test on rainfall based on Estevez et al. (2011)####
+#Acceptable values fall between 0 and 500 mm
 f.rain.r2 <- function(data) {
   data$Observation <- ymd_hms(data$Observation)
+  #Vectorize and format rain data
   rain <- as.numeric(data$Rainfall)
+  #Grab just the date of each record
   TempDay <- floor_date(data$Observation, 'day')
+  #Generate daily summaries
   Daily.Climate.Data <- data.frame(Rain = tapply(rain, TempDay, sum))
+  #Index the rows in which a day had more than 500 mm or less than 0 mm of rain
   rain.fail.r2 <- as.vector(which(Daily.Climate.Data$Rain > 500 | Daily.Climate.Data$Rain < 0))
+  #Get the dates from the index number to flag the results
   dates.fail <- ymd(row.names(Daily.Climate.Data)[rain.fail.r2])
+  #Creates an index again to store the dates in the data that match the days that
+  #failed in the previous index (CAN 116-121 BE CLEANED UP AT ALL?)
   rain.fail.r2 <- which(TempDay %in% dates.fail)
-  #Create a dataframe with results of the test
+  #Create a data frame with results of the test
   final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
                          TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, rain = rain,
                          rain.rangeTest = NA)
@@ -121,5 +130,69 @@ f.rain.r2 <- function(data) {
   final.df$rain.rangeTest[is.na(final.df$rain.rangeTest)] <- ' '
   return(final.df)
 }
-#head(str_split_fixed(data$Observation, pattern = ' ', 2))
-#strsplit(data$Observation, ' ')
+
+#Performs first persistence test for temperature####
+f.temp.p1 <- function(data) {
+  data$Observation <- ymd_hms(data$Observation)
+  #Vectorize and format the temperature data
+  temp.1 <- as.numeric(data$Sensor1_AvgTemp)
+  temp.2 <- as.numeric(data$Sensor2_AvgTemp)
+  temp.3 <- as.numeric(data$Sensor3_AvgTemp)
+  #Run the persistence function to generate index of failed records for:
+  #first record (with data), and 1 and 2 days prior to current record
+  #See f.persistence function for the real magic; setup with data set
+  #and variable of interest
+  temp.1.fail.p1 <- f.persistence(data, temp.1)
+  temp.2.fail.p1 <- f.persistence(data, temp.2)
+  temp.3.fail.p1 <- f.persistence(data, temp.3)
+  #Create a data frame with results of the test
+  final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
+                         TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, temp.1 = temp.1,
+                         temp.1.perTest = NA, temp.2 = temp.2, temp.2.perTest = NA, temp.3 = temp.3,
+                         temp.3.perTest = NA)
+  #Use the failed test index to store the error code
+  final.df$temp.1.perTest[temp.1.fail.p1] <- 'P1'
+  final.df$temp.2.perTest[temp.2.fail.p1] <- 'P1'
+  final.df$temp.3.perTest[temp.3.fail.p1] <- 'P1'
+  #Replace NAs with a blank
+  final.df$temp.1.perTest[is.na(final.df$temp.1.perTest)] <- ' '
+  final.df$temp.2.perTest[is.na(final.df$temp.2.perTest)] <- ' '
+  final.df$temp.3.perTest[is.na(final.df$temp.3.perTest)] <- ' '
+  return(final.df)
+}
+
+#This function creates an index to compare records to exactly 1 and 2 days prior to the
+#current record and then returns an index of records that fail the test
+#All three records will be flagged if they are the same value
+#Must use a valid data set and variable
+f.persistence <- function(data, var) {
+  #Find the date (and time) of the first record in the data set
+  this.date <- which(data$Observation == min(data$Observation))
+  #Get the index for a 2 day delayed start to make the for loop work properly
+  delayed.start <- which(data$Observation == data$Observation[this.date] + days(2))
+  #If there is no data for the first record, index the first record that has data
+  delayed.start <- ifelse(test=delayed.start < which(!is.na(var))[1],
+                          yes=which(!is.na(var))[1],
+                          no=delayed.start)
+  #Get the index for a 2 day delayed start from the first record that has data
+  #to make the for loop work properly (155-163 CAN PROBABLY BE CLEANED UP)
+  delayed.start <- which(data$Observation == data$Observation[delayed.start] + days(2))
+  #Create an empty list to store the index values for records that fail the test
+  fail.list <- list()
+  #Starts at the earliest record with data and fills list with records that fail test
+  for(i in delayed.start:379732) {
+    #Index the date and time of the current record
+    this.date <- which(data$Observation == data$Observation[i])
+    #index the date and time of the record exactly 1 and 2 days prior to current record 
+    day.before <- which(data$Observation == data$Observation[i] - days(1))
+    days2.before <- which(data$Observation == data$Observation[i] - days(2))
+    #If the variable for the current record is equal to the value exactly 1 and 2 days
+    #before the current record, index all three rows
+    if(var[i] == var[day.before] & var[i] == var[days2.before])  {
+      fail.list[[i]] <- c(this.date, day.before, days2.before)
+    }
+  }
+  #Convert the list index for failed records into a vector index and return
+  fail.index <- unlist(fail.list)
+  return(fail.index)
+}

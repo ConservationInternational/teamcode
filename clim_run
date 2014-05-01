@@ -1,0 +1,31 @@
+#source('~/Jimmy_Code/teamcode/tools/team_db_query.R')
+
+#Load in the TEAM climate data
+#cldata <- f.teamdb.query('climate')
+#clmeta <- cldata$cl_temp_maxmin
+#cldata <- cldata$cl_data
+
+load('cl_data_new2014-04-24.gzip')
+vb.data.3.0 <- cl_data_all[which(cl_data_all$TEAMSiteName == unique(cl_data_all$TEAMSiteName)[3] &
+                                 cl_data_all$ProtocolVersion == 'Climate 3'), ]
+vb.data.3.0.st2 <- vb.data.3.0[which(vb.data.3.0$SamplingUnitName == 'CL-VB-2'), ]
+
+#Relative humidity range test 1
+rh.r1.test <- f.rh.r1(vb.data.3.0.st2)
+
+#Temperature range test 1
+temp.r1.test <- f.temp.r1(vb.data.3.0.st2)
+
+#NEED TO ADD TEMPERATURE RANGE TEST 2
+
+#Rainfall range test 1
+rain.r1.test <- f.rain.r1(vb.data.3.0.st2)
+#g<-cmpfun(f.rain.r1)
+#compare <- microbenchmark(f.rain.r1(vb.data.3.0), g(vb.data.3.0), times = 1000)
+#autoplot(compare)
+
+#Rainfall range test 2
+rain.r2.test <- f.rain.r2(vb.data.3.0)
+
+#Temperature persistence test 1
+temp.p1.test <- f.temp.p1(vb.data.3.0)

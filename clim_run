@@ -11,21 +11,25 @@ vb.data.3.0 <- cl_data_all[which(cl_data_all$TEAMSiteName == unique(cl_data_all$
 vb.data.3.0.st2 <- vb.data.3.0[which(vb.data.3.0$SamplingUnitName == 'CL-VB-2'), ]
 
 #Relative humidity range test 1
+#Less than a minute for 342637 records
 rh.r1.test <- f.rh.r1(vb.data.3.0.st2)
 
 #Temperature range test 1
+#Less than a minute for 342637 records
 temp.r1.test <- f.temp.r1(vb.data.3.0.st2)
 
 #NEED TO ADD TEMPERATURE RANGE TEST 2
 
 #Rainfall range test 1
+#Runs at 5 minutes for 342637 records
 rain.r1.test <- f.rain.r1(vb.data.3.0.st2)
 #g<-cmpfun(f.rain.r1)
 #compare <- microbenchmark(f.rain.r1(vb.data.3.0), g(vb.data.3.0), times = 1000)
 #autoplot(compare)
 
 #Rainfall range test 2
-rain.r2.test <- f.rain.r2(vb.data.3.0)
+#Runs at less than a minute for 342637 records
+rain.r2.test <- f.rain.r2(vb.data.3.0.st2)
 
 #Temperature persistence test 1
 temp.p1.test <- f.temp.p1(vb.data.3.0)

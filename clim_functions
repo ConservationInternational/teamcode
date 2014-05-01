@@ -111,15 +111,18 @@ f.rain.r2 <- function(data) {
   rain <- as.numeric(data$Rainfall)
   #Grab just the date of each record
   TempDay <- floor_date(data$Observation, 'day')
+  TempDay <- ymd(TempDay)
   #Generate daily summaries
   Daily.Climate.Data <- data.frame(Rain = tapply(rain, TempDay, sum))
   #Index the rows in which a day had more than 500 mm or less than 0 mm of rain
   rain.fail.r2 <- as.vector(which(Daily.Climate.Data$Rain > 500 | Daily.Climate.Data$Rain < 0))
   #Get the dates from the index number to flag the results
-  dates.fail <- ymd(row.names(Daily.Climate.Data)[rain.fail.r2])
-  #Creates an index again to store the dates in the data that match the days that
-  #failed in the previous index (CAN 116-121 BE CLEANED UP AT ALL?)
-  rain.fail.r2 <- which(TempDay %in% dates.fail)
+  if(length(rain.fail.r2) != 0) {
+    dates.fail <- ymd(row.names(Daily.Climate.Data)[rain.fail.r2])
+    #Creates an index again to store the dates in the data that match the days that
+    #failed in the previous index
+    rain.fail.r2 <- which(TempDay %in% dates.fail)
+  }
   #Create a data frame with results of the test
   final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
                          TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, rain = rain,
@@ -132,17 +135,24 @@ f.rain.r2 <- function(data) {
 }
 
 #Performs first persistence test for temperature####
-f.temp.p1 <- function(data) {
+f.temp.rh.p1 <- function(data) {
   data$Observation <- ymd_hms(data$Observation)
   #Vectorize and format the temperature data
   temp.1 <- as.numeric(data$Sensor1_AvgTemp)
   temp.2 <- as.numeric(data$Sensor2_AvgTemp)
   temp.3 <- as.numeric(data$Sensor3_AvgTemp)
+  rh.1 <- as.numeric(data$Sensor1_RelativeHumidity)
+  rh.2 <- as.numeric(data$Sensor2_RelativeHumidity)
+  rh.3 <- as.numeric(data$Sensor3_RelativeHumidity)
+  #Create a list of variables
+  var.list <- list(temp.3, rh.1, rh.2, rh.3)
   #Run the persistence function to generate index of failed records for:
   #first record (with data), and 1 and 2 days prior to current record
   #See f.persistence function for the real magic; setup with data set
   #and variable of interest
+  #Takes roughly 8 hours per sensor - should be able to speed this up
   temp.1.fail.p1 <- f.persistence(data, temp.1)
+  #Start @ 11:49 AM
   temp.2.fail.p1 <- f.persistence(data, temp.2)
   temp.3.fail.p1 <- f.persistence(data, temp.3)
   #Create a data frame with results of the test
@@ -180,7 +190,7 @@ f.persistence <- function(data, var) {
   #Create an empty list to store the index values for records that fail the test
   fail.list <- list()
   #Starts at the earliest record with data and fills list with records that fail test
-  for(i in delayed.start:379732) {
+  for(i in delayed.start:nrow(data)) {
     #Index the date and time of the current record
     this.date <- which(data$Observation == data$Observation[i])
     #index the date and time of the record exactly 1 and 2 days prior to current record 
@@ -188,8 +198,55 @@ f.persistence <- function(data, var) {
     days2.before <- which(data$Observation == data$Observation[i] - days(2))
     #If the variable for the current record is equal to the value exactly 1 and 2 days
     #before the current record, index all three rows
-    if(var[i] == var[day.before] & var[i] == var[days2.before])  {
+    if(length(var[i] == var[day.before] | var[i] == days2.before ) == 0) {
+      this.date <- this.date
+    } else if(is.na(var[i]) | is.na(var[day.before]) | is.na(var[days2.before])) {
+      this.date <- this.date
+    } else if(var[i] == var[day.before] & var[i] == var[days2.before])  {
       fail.list[[i]] <- c(this.date, day.before, days2.before)
+    }
+  }
+  #Convert the list index for failed records into a vector index and return
+  fail.index <- unlist(fail.list)
+  return(fail.index)
+}
+
+#Takes list of variables and runs persistence test on all
+f.persistence.list <- function(data, var.list) {
+  #Find the date (and time) of the first record in the data set
+  this.date <- which(data$Observation == min(data$Observation))
+  #Get the index for a 2 day delayed start to make the for loop work properly
+  for (j in 1:length(var.list)) {
+    delayed.start <- vector()
+    delayed.start[j] <- which(data$Observation == data$Observation[this.date] + days(2))
+    #If there is no data for the first record, index the first record that has data
+    delayed.start[j] <- ifelse(test=delayed.start < which(!is.na(var.list[[j]]))[1],
+                            yes=which(!is.na(var.list[[j]]))[1],
+                            no=delayed.start)
+    #Get the index for a 2 day delayed start from the first record that has data
+    #to make the for loop work properly (155-163 CAN PROBABLY BE CLEANED UP)
+    delayed.start[j] <- which(data$Observation == data$Observation[delayed.start] + days(2))
+  }
+  #Create an empty list to store the index values for records that fail the test
+  fail.list <- list()
+  #Starts at the earliest record with data and fills list with records that fail test
+  for(i in delayed.start:nrow(data)) {
+    #Index the date and time of the current record
+    this.date <- which(data$Observation == data$Observation[i])
+    #index the date and time of the record exactly 1 and 2 days prior to current record 
+    day.before <- which(data$Observation == data$Observation[i] - days(1))
+    days2.before <- which(data$Observation == data$Observation[i] - days(2))
+    #If the variable for the current record is equal to the value exactly 1 and 2 days
+    #before the current record, index all three rows
+    if(is.na(var[i]) | is.na(var[day.before]) | is.na(var[days2.before])) {
+      this.date <- this.date
+    }
+    if(length(var[i] == var[day.before] & var[i] == days2.before ) == 0) {
+      this.date <- this.date
+    } else {
+      if(var[i] == var[day.before] & var[i] == var[days2.before])  {
+        fail.list[[i]] <- c(this.date, day.before, days2.before)
+      }
     }
   }
   #Convert the list index for failed records into a vector index and return

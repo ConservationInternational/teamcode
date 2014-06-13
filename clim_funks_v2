@@ -1,0 +1,226 @@
+require(stringr)
+require(lubridate)
+require(compiler)
+require(ggplot2)
+require(zoo)
+
+#Performs range test for relative humidity, and temperature based on Estevez et al. (2011)####
+#RH acceptable range = 0-100%
+#Temp acceptable rante = -30 and 50; revisit these numbers (Africa max high is 55--WMO)
+f.rangeTest <- function(data) {
+  #Vectorize and format the relative humidity, temperature, and rain data####
+  #Relative Humidity
+  rh.1 <- as.numeric(data$Sensor1_RelativeHumidity)
+  rh.2 <- as.numeric(data$Sensor2_RelativeHumidity)
+  rh.3 <- as.numeric(data$Sensor3_RelativeHumidity)
+  #Temperature
+  temp.1 <- as.numeric(data$Sensor1_AvgTemp)
+  temp.2 <- as.numeric(data$Sensor2_AvgTemp)
+  temp.3 <- as.numeric(data$Sensor3_AvgTemp)
+  #Rain
+  rain <- as.numeric(data$Rainfall)
+  data$Observation <- ymd_hms(data$Observation)
+  #Create indices for rows that fail the range test####
+  #Relative Humidity
+  rh.1.fail.r1 <- which(rh.1 < 0 | rh.1 > 100)
+  rh.2.fail.r1 <- which(rh.2 < 0 | rh.2 > 100)
+  rh.3.fail.r1 <- which(rh.3 < 0 | rh.3 > 100)
+  #Temperature - Test 1
+  temp.1.fail.r1 <- which(temp.1 < -30 | temp.1 > 50)
+  temp.2.fail.r1 <- which(temp.2 < -30 | temp.2 > 50)
+  temp.3.fail.r1 <- which(temp.3 < -30 | temp.3 > 50)
+  #Temperature - Test 2
+  #Performs second range test on temperature based on Estevez et al. (2011)--UNDER CONSTRUCTION####
+  #Need to find an accurate list of country max/min temperatures; ideally long-term stations close to TEAM station
+  #Rain - Test 1
+  #Store the first day of the data (where to start the interval)
+  start.date <- min(data$Observation) #ymd('2010-07-01')
+  #Create a vector to store the index info for failed tests
+  rain.fail.r1 <- vector()
+  #Create a half hour interval window to select data during that period
+  int <- new_interval(start = start.date, end = start.date + minutes(30))
+  #For each record use the interval to index data and then sum rainfall measurements
+  for(i in 1:nrow(data)) {
+    #If there is no data for a particular interval, shift the interval by five minutes and start again
+    #at next record
+    if(length(which(data$Observation %within% int)) == 0) {
+      int <- int_shift(int = int, by = minutes(5))
+    } else {
+      #If the any data exists in the interval, sum the data over the half-hour interval
+      half.hr.sum <- sum(rain[which(data$Observation %within% int)])
+      #If the sum of the interval is greater than 120 or less than 0, store the row number in the index
+      if(half.hr.sum > 120 | half.hr.sum < 0) {
+        rain.fail.r1[i] <- which(data$Observation %within% int)[1]
+      }
+      #After storing the row number in the index, shift the interval by five minutes and repeat
+      int <- int_shift(int = int, by = minutes(5))
+    }
+  }
+  #Rain - Test 2
+  #Grab just the date of each record
+  TempDay <- floor_date(data$Observation, 'day')
+  TempDay <- ymd(TempDay)
+  #Generate daily summaries
+  Daily.Climate.Data <- data.frame(Rain = tapply(rain, TempDay, sum))
+  #Index the rows in which a day had more than 500 mm or less than 0 mm of rain
+  rain.fail.r2 <- as.vector(which(Daily.Climate.Data$Rain > 500 | Daily.Climate.Data$Rain < 0))
+  #Get the dates from the index number to flag the results
+  if(length(rain.fail.r2) != 0) {
+    dates.fail <- ymd(row.names(Daily.Climate.Data)[rain.fail.r2])
+    #Creates an index again to store the dates in the data that match the days that
+    #failed in the previous index
+    rain.fail.r2 <- which(TempDay %in% dates.fail)
+  }
+  #Create a data frame with results of the test####
+  final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
+                         TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, rh.1 = rh.1,
+                         rh.1.rangeTest = NA, rh.2 = rh.2, rh.2.rangeTest = NA, rh.3 = rh.3, rh.3.rangeTest = NA,
+                         temp.1 = temp.1, temp.1.rangeTest = NA, temp.2 = temp.2, temp.2.rangeTest = NA,
+                         temp.3 = temp.3, temp.3.rangeTest = NA, rain = rain, rain.rangeTest1 = NA,
+                         rain.rangeTest2 = NA)
+  #Use the failed test index to store the error code####
+  #Relative Humidity
+  final.df$rh.1.rangeTest[rh.1.fail.r1] <- 'R1'
+  final.df$rh.2.rangeTest[rh.2.fail.r1] <- 'R1'
+  final.df$rh.3.rangeTest[rh.3.fail.r1] <- 'R1'
+  #Temperature
+  final.df$temp.1.rangeTest[temp.1.fail.r1] <- 'R1'
+  final.df$temp.2.rangeTest[temp.2.fail.r1] <- 'R1'
+  final.df$temp.3.rangeTest[temp.3.fail.r1] <- 'R1'
+  #Rain
+  #Remove NAs that were introduced to the failed test index
+  rain.fail.r1 <- rain.fail.r1[!is.na(rain.fail.r1)]
+  final.df$rain.rangeTest1[rain.fail.r1] <- 'R1'
+  final.df$rain.rangeTest2[rain.fail.r2] <- 'R2'
+  #Replace NAs with a blank####
+  #Relative Humidity
+  final.df$rh.1.rangeTest[is.na(final.df$rh.1.rangeTest)] <- ' '
+  final.df$rh.2.rangeTest[is.na(final.df$rh.2.rangeTest)] <- ' '
+  final.df$rh.3.rangeTest[is.na(final.df$rh.3.rangeTest)] <- ' '
+  #Temperature
+  final.df$temp.1.rangeTest[is.na(final.df$temp.1.rangeTest)] <- ' '
+  final.df$temp.2.rangeTest[is.na(final.df$temp.2.rangeTest)] <- ' '
+  final.df$temp.3.rangeTest[is.na(final.df$temp.3.rangeTest)] <- ' '
+  #Rain
+  final.df$rain.rangeTest1[is.na(final.df$rain.rangeTest1)] <- ' '
+  final.df$rain.rangeTest2[is.na(final.df$rain.rangeTest2)] <- ' '
+  return(final.df)
+}
+
+#Performs persistence test for solar radiation, relative humidity, and temperatur based on Estevez et al. (2011)e####
+#This function creates an index to compare records to exactly 1 and 2 days prior to the
+#current record and then returns an index of records that fail the test
+#All three records will be flagged if they are the same value
+f.persistenceTest <- function(data) {
+  data$Observation <- ymd_hms(data$Observation)
+  #Vectorize and format the data####
+  #Solar Radiation
+  sol.1 <- as.numeric(data$Sensor1_AvgSolarRadiation)
+  sol.2 <- as.numeric(data$Sensor2_AvgSolarRadiation)
+  #Relative Humidity
+  rh.1 <- as.numeric(data$Sensor1_RelativeHumidity)
+  rh.2 <- as.numeric(data$Sensor2_RelativeHumidity)
+  rh.3 <- as.numeric(data$Sensor3_RelativeHumidity)
+  #Temperature
+  temp.1 <- as.numeric(data$Sensor1_AvgTemp)
+  temp.2 <- as.numeric(data$Sensor2_AvgTemp)
+  temp.3 <- as.numeric(data$Sensor3_AvgTemp)
+  
+  #Find the date (and time) of the first record in the data set
+  start.date <- which(data$Observation == min(data$Observation))
+  #Get the index for a 2 day delayed start to make the for loop work properly
+  delayed.start <- which(data$Observation == data$Observation[start.date] + days(2))
+  index.list <- list()
+  for(i in delayed.start:nrow(data)) {
+    index.list[[i]] <- c(which(data$Observation == data$Observation[i]), which(data$Observation == data$Observation[i] - days(1)),
+                         which(data$Observation == data$Observation[i] - days(2)))
+  }
+  #Create an empty list to store the index values for records that fail the test
+  sol.1.index.vector <- vector()
+  sol.2.index.vector <- vector()
+  rh.1.index.vector <- vector()
+  rh.2.index.vector <- vector()
+  rh.3.index.vector <- vector()
+  temp.1.index.vector <- vector()
+  temp.2.index.vector <- vector()
+  temp.3.index.vector <- vector()
+  for(i in 1:length(index.list)) {
+    sol.1.index.vector[i] <- ifelse(sol.1[index.list[[i]][1]] == sol.1[index.list[[i]][2]] &
+                                 sol.1[index.list[[i]][1]] == sol.1[index.list[[i]][3]], 'P1', ' ')
+    sol.2.index.vector[i] <- ifelse(sol.2[index.list[[i]][1]] == sol.2[index.list[[i]][2]] &
+                                      sol.2[index.list[[i]][1]] == sol.2[index.list[[i]][3]], 'P1', ' ')
+    rh.1.index.vector[i] <- ifelse(temp.1[index.list[[i]][1]] == temp.1[index.list[[i]][2]] &
+                                       temp.1[index.list[[i]][1]] == temp.1[index.list[[i]][3]], 'P1', ' ')
+    rh.2.index.vector[i] <- ifelse(temp.1[index.list[[i]][1]] == temp.1[index.list[[i]][2]] &
+                                     temp.1[index.list[[i]][1]] == temp.1[index.list[[i]][3]], 'P1', ' ')
+    rh.3.index.vector[i] <- ifelse(temp.1[index.list[[i]][1]] == temp.1[index.list[[i]][2]] &
+                                     temp.1[index.list[[i]][1]] == temp.1[index.list[[i]][3]], 'P1', ' ')
+    temp.1.index.vector[i] <- ifelse(temp.1[index.list[[i]][1]] == temp.1[index.list[[i]][2]] &
+                                       temp.1[index.list[[i]][1]] == temp.1[index.list[[i]][3]], 'P1', ' ')
+    temp.2.index.vector[i] <- ifelse(temp.2[index.list[[i]][1]] == temp.2[index.list[[i]][2]] &
+                                       temp.2[index.list[[i]][1]] == temp.2[index.list[[i]][3]], 'P1', ' ')
+    temp.3.index.vector[i] <- ifelse(temp.3[index.list[[i]][1]] == temp.3[index.list[[i]][2]] &
+                                       temp.3[index.list[[i]][1]] == temp.3[index.list[[i]][3]], 'P1', ' ')
+  }
+  #Convert the list index for failed records into a vector index and return
+  sol.1.fail.list <- unlist(index.list[which(sol.1.index.vector == 'P1')])
+  sol.2.fail.list <- unlist(index.list[which(sol.2.index.vector == 'P1')])
+  rh.1.fail.list <- unlist(index.list[which(rh.1.index.vector == 'P1')])
+  rh.2.fail.list <- unlist(index.list[which(rh.2.index.vector == 'P1')])
+  rh.3.fail.list <- unlist(index.list[which(rh.3.index.vector == 'P1')])
+  temp.1.fail.list <- unlist(index.list[which(temp.1.index.vector == 'P1')])
+  temp.2.fail.list <- unlist(index.list[which(temp.2.index.vector == 'P1')])
+  temp.3.fail.list <- unlist(index.list[which(temp.3.index.vector == 'P1')])
+  #Create a data frame with results of the test
+  final.df <- data.frame(ReferenceID = data$ReferenceID, RecordID = data$RecordID, Observation = data$Observation,
+                         TEAMSiteName = data$TEAMSiteName, SamplingUnitName = data$SamplingUnitName, sol.1 = sol.1,
+                         sol.1.perTest = NA, sol.2 = sol.2, sol.2.perTest = NA, rh.1 = rh.1, rh.1.perTest = NA,
+                         rh.2 = rh.2, rh.2.perTest = NA, rh.3 = rh.3, rh.3.perTest = NA, temp.1 = temp.1,
+                         temp.1.perTest = NA, temp.2 = temp.2, temp.2.perTest = NA, temp.3 = temp.3,
+                         temp.3.perTest = NA)
+  #Use the failed test index to store the error code
+  final.df$sol.1.perTest[sol.1.fail.list] <- 'P1'
+  final.df$sol.2.perTest[sol.2.fail.list] <- 'P1'
+  final.df$rh.1.perTest[rh.1.fail.list] <- 'P1'
+  final.df$rh.2.perTest[rh.2.fail.list] <- 'P1'
+  final.df$rh.3.perTest[rh.3.fail.list] <- 'P1'
+  final.df$temp.1.perTest[temp.1.fail.list] <- 'P1'
+  final.df$temp.2.perTest[temp.2.fail.list] <- 'P1'
+  final.df$temp.3.perTest[temp.3.fail.list] <- 'P1'
+  #Replace NAs with a blank
+  final.df$sol.1.perTest[is.na(final.df$sol.1.perTest)] <- ' '
+  final.df$sol.2.perTest[is.na(final.df$sol.2.perTest)] <- ' '
+  final.df$rh.1.perTest[is.na(final.df$rh.1.perTest)] <- ' '
+  final.df$rh.2.perTest[is.na(final.df$rh.2.perTest)] <- ' '
+  final.df$rh.3.perTest[is.na(final.df$rh.3.perTest)] <- ' '
+  final.df$temp.1.perTest[is.na(final.df$temp.1.perTest)] <- ' '
+  final.df$temp.2.perTest[is.na(final.df$temp.2.perTest)] <- ' '
+  final.df$temp.3.perTest[is.na(final.df$temp.3.perTest)] <- ' '
+  return(final.df)
+}
+
+#Helper function to tally error rate
+f.errorRate <- function(range, persistence) {
+  #Range error rate
+  noRows.range <- data.frame(noRows = c(nrow(range[!is.na(range$rh.1), ]), nrow(range[!is.na(range$rh.2), ]), nrow(range[!is.na(range$rh.3), ]),
+                             nrow(range[!is.na(range$temp.1), ]), nrow(range[!is.na(range$temp.2), ]), nrow(range[!is.na(range$temp.3), ]),
+                             nrow(range[!is.na(range$rain), ]), nrow(range[!is.na(range$rain), ])))
+  row.names(noRows.range) <- c('rh.1', 'rh.2', 'rh.3', 'temp.1', 'temp.2', 'temp.3', 'rain1', 'rain2')
+  noRows.range$failed <- c(length(which(range$rh.1.rangeTest == 'R1')), length(which(range$rh.2.rangeTest == 'R1')),
+                           length(which(range$rh.3.rangeTest == 'R1')), length(which(range$temp.1.rangeTest == 'R1')),
+                           length(which(range$temp.2.rangeTest == 'R1')), length(which(range$temp.3.rangeTest == 'R1')),
+                           length(which(range$rain.rangeTest1 == 'R1')), length(which(range$rain.rangeTest2 == 'R2')))
+  noRows.range$errorRate <- noRows.range$failed / noRows.range$noRows
+  #Persistence error rate
+  noRows.per <- data.frame(noRows = c(nrow(persistence[!is.na(persistence$sol.1), ]), nrow(persistence[!is.na(persistence$sol.2), ]), nrow(persistence[!is.na(persistence$rh.1), ]),
+                                      nrow(persistence[!is.na(persistence$rh.2), ]), nrow(persistence[!is.na(persistence$rh.3), ]), nrow(persistence[!is.na(persistence$temp.1), ]),
+                                      nrow(persistence[!is.na(persistence$temp.2), ]), nrow(persistence[!is.na(persistence$temp.3), ])))
+  row.names(noRows.per) <- c('sol.1', 'sol.2', 'rh.1', 'rh.2', 'rh.3', 'temp.1', 'temp.2', 'temp.3')
+  noRows.per$failed <- c(length(which(persistence$sol.1.perTest == 'P1')), length(which(persistence$sol.2.perTest == 'P1')), 
+                         length(which(persistence$rh.1.perTest == 'P1')), length(which(persistence$rh.2.perTest == 'P1')),
+                         length(which(persistence$rh.3.perTest == 'P1')), length(which(persistence$temp.1.perTest == 'P1')),
+                         length(which(persistence$temp.2.perTest == 'P1')), length(which(persistence$temp.3.perTest == 'P1')))
+  noRows.per$errorRate <- noRows.per$failed / noRows.per$noRows
+  final.list <- list(noRows.range, noRows.per)
+  return(final.list)
+}

@@ -1,0 +1,37 @@
+#source('~/Jimmy_Code/teamcode/tools/team_db_query.R')
+
+#Load in the TEAM climate data
+#cldata <- f.teamdb.query('climate')
+#clmeta <- cldata$cl_temp_maxmin
+#cldata <- cldata$cl_data
+
+load('cl_data_new2014-04-24.gzip')
+vb.data.3.0 <- cl_data_all[which(cl_data_all$TEAMSiteName == unique(cl_data_all$TEAMSiteName)[3] &
+                                 cl_data_all$ProtocolVersion == 'Climate 3'), ]
+nak.data.3.0 <- cl_data_all[which(cl_data_all$TEAMSiteName == unique(cl_data_all$TEAMSiteName)[1] &
+                                   cl_data_all$ProtocolVersion == 'Climate 3'), ]
+vb.data.3.0.st2 <- vb.data.3.0[which(vb.data.3.0$SamplingUnitName == 'CL-VB-2'), ]
+vb.use.data <- vb.data.3.0.st2[1:30000, ]
+data<-vb.use.data[1:5000, ]
+
+#Range tests for relative humidity, temperature, and rainfall
+#System Time: 54.2 seconds for 5,000 records
+#System Time: 23396.4 seconds (6.5 hours) for 384,907
+system.time(rangeTest.Output <- f.rangeTest(nak.data.3.0))
+
+#NEED TO ADD TEMPERATURE RANGE TEST 2
+
+#Persistence tests for solar radiation, relative humidity, and temperature
+#System Time: 75.1 seconds for 5,000 records
+#System Time: 20883.3 seconds (5.8 hours) for 384,907
+system.time(persistenceTest.Output <- f.persistenceTest(nak.data.3.0))
+
+#Calculate the error rate
+#Returns a list of the error rate tables: range, step, consistency, and persistence
+#System Time: 4.6 seconds for 2 tests
+system.time(errorRate <- f.errorRate(rangeTest.Output, persistenceTest.Output))
+
+
+#g<-cmpfun(f.rain.r1)
+#compare <- microbenchmark(f.rain.r1(vb.data.3.0), g(vb.data.3.0), times = 1000)
+#autoplot(compare)

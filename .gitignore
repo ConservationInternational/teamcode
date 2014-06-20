@@ -1,12 +1,5 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 .DS_Store
->>>>>>> a6f59f203de28cf40b2ba12cb8e33b68b6052274
 .Rproj.user
-.Rhistory
-.RData
-=======
 .Rhistory
 .RData
 *.swp
@@ -17,4 +10,3 @@
 *.rdx
 *.o
 *.dll
->>>>>>> 600f742dfa647ab4bb65c5f3b29bd6222ae6a4ae

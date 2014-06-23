@@ -22,7 +22,8 @@ f.teamdb.query <- function(dataset) {
   # Vegetation dataset: Returns a list wtih two dataframes in it:
   # tree: The entire tree dataset
   # liana: The entire liana dataset
-  
+  library(data.table)
+  library(lubridate)
   library(RPostgreSQL) # Need to explore RJDBC to connect with vertica
   drv <- dbDriver("PostgreSQL")
   con <- dbConnect(drv,user="readonlyuser",password="rwanda*2014",

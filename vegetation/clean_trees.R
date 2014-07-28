@@ -82,17 +82,11 @@ table(trees$n_obs)
 table(trees[trees$n_obs > 1,]$sitecode, trees[trees$n_obs > 1,]$SamplingPeriod)
 
 ###############################################################################
-# TODO: Figure out what is going on in 2013 CSN data
-
 # Correct 999 used to code missing or dead trees in CSN per Jul 10 email from 
 # Jimmy. This value codes missing or dead trees. Code as NA so these are 
 # dropped from growth calculations. TODO: Need to recode these in the condition 
 # code column.
 trees[which((trees$sitecode == 'CSN') & (trees$Diameter == 999)), ]$Diameter <- NA
-
-###############################################################################
-# Exclude stems under 10 cm dbh
-trees <- filter(trees, Diameter >= 10)
 
 summ_stats <- summarize(group_by(trees, sitecode, SamplingPeriod),
                         dbh_mean=mean(Diameter, na.rm=TRUE),
@@ -278,11 +272,13 @@ trees$Diameter[trees$OnehaPlotNumber=="VG-COU-5" & trees$Diameter==723] <- 72.3
 trees$Diameter[trees$OnehaPlotNumber=="VG-COU-5" & trees$Diameter==1120] <- 112.0
 # Add decimal to outlier diameter in plot VG-YAS-1
 trees$Diameter[trees$OnehaPlotNumber=="VG-YAS-1" & trees$Diameter==420] <- 42.0
-# Add decimal to outlier (999) values in plots VG-CSN-1 and VG-CSN-5
-trees$Diameter[trees$OnehaPlotNumber=="VG-CSN-1" & trees$Diameter==999] <- 99.9
-trees$Diameter[trees$OnehaPlotNumber=="VG-CSN-5" & trees$Diameter==999] <- 99.9
 
 # Check to be sure that no other years had outlier values for these stems
 trees$Diameter[trees$OnehaPlotNumber=="VG-COU-5" & trees$Diameter>300]
+
+###############################################################################
+# Exclude stems under 10 cm dbh
+trees <- filter(trees, Diameter >= 10)
+
 
 save(trees, file='trees_clean.RData')

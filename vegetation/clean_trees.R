@@ -67,7 +67,7 @@ for (ConditionCode in ConditionCodes) {
 
 ###############################################################################
 # There are multiple observations per sampling period for the same tree. This 
-# should not occur except in cause of remeasurement or multiple stems. Multiple 
+# should not occur except in case of remeasurement or multiple stems. Multiple 
 # stems however should have unique SamplingUnitName values.
 trees <- mutate(group_by(trees, sitecode, SamplingUnitName, SamplingPeriod),
                          n_obs=rep(length(Diameter), length(Diameter)),
@@ -278,7 +278,7 @@ trees$Diameter[trees$OnehaPlotNumber=="VG-COU-5" & trees$Diameter>300]
 
 ###############################################################################
 # Exclude stems under 10 cm dbh
+table(trees$Diameter <= 10)
 trees <- filter(trees, Diameter >= 10)
-
 
 save(trees, file='trees_clean.RData')

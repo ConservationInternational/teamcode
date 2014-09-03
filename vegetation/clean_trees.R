@@ -18,8 +18,8 @@ dir(".", pattern="veg_data")
 load('H:/Data/TEAM_Database_Downloads/veg_data2014-07-10.gzip')
 
 trees <- result$tree
-sitecode_key <- read.csv("Site_Code_Key.csv")
-trees$sitecode <- sitecode_key$Site.Name.Code[match(trees$SiteName, sitecode_key$Site.Name.Database)]
+sitecode_key <- read.csv("sitecode_key.csv")
+trees$sitecode <- sitecode_key$sitecode[match(trees$SiteName, sitecode_key$sitename_database)]
 trees$ObservationDate <- as.Date(trees$ObservationDate)
 
 trees <- tbl_df(trees)

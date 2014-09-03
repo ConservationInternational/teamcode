@@ -83,8 +83,8 @@ for (n in which(site_codes %in% sites_to_plot)) {
 
     maxpixels <- ceiling((width * height * dpi^2)/1000) * 1000
 
-    site_name <- site_codes_key$Site.Name.Short[match(site_code, 
-                                                      site_codes_key$Site.Name.Code)]
+    site_name <- site_codes_key$sitename_short[match(site_code, 
+                                                     site_codes_key$sitecode)]
     plot_title <- paste(site_name, 'forest change')
 
     gfc_annual <- brick(gfc_extract_files[n])

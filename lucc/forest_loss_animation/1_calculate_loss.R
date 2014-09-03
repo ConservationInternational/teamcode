@@ -62,8 +62,9 @@ loss$threshold <- factor(loss$threshold)
 
 # Add some more data fields needed for plotting
 loss$year <- as.Date(paste0(loss$year, '-1-1'))
-site_codes_key <- read.csv('Site_Code_Key.csv')
-loss$site_name <- site_codes_key$Site.Name.Short[match(loss$site_code, site_codes_key$Site.Name.Code)]
+site_codes_key <- read.csv('sitecode_key.csv')
+loss$site_name <- site_codes_key$sitename_short[match(loss$site_code, 
+                                                      site_codes_key$sitecode)]
 
 # Add cumulative and percent loss fields
 loss <- ddply(loss, .(threshold, site_code, aoi), transform,

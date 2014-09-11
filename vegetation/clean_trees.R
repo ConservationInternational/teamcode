@@ -15,11 +15,12 @@ library(lubridate)
 #veg_data <- f.teamdb.query('vegetation')
 
 dir(".", pattern="veg_data")
-load('H:/Data/TEAM_Database_Downloads/veg_data2014-07-10.gzip')
+load('H:/Data/TEAM_Database_Downloads/veg_data2014-09-11.gzip')
 
 trees <- result$tree
 sitecode_key <- read.csv("sitecode_key.csv")
-trees$sitecode <- sitecode_key$sitecode[match(trees$SiteName, sitecode_key$sitename_database)]
+trees$sitecode <- sitecode_key$sitecode[match(trees$SiteName, 
+                                              sitecode_key$sitename_database)]
 trees$ObservationDate <- as.Date(trees$ObservationDate)
 
 trees <- tbl_df(trees)

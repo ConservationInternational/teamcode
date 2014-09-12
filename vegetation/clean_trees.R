@@ -10,12 +10,13 @@
 library(dplyr)
 library(stringr)
 library(lubridate)
+library(stringr)
 
 # Uncomment below to 
 #veg_data <- f.teamdb.query('vegetation')
 
 dir(".", pattern="veg_data")
-load('H:/Data/TEAM_Database_Downloads/veg_data2014-09-11.gzip')
+load('O:/Data/TEAM_Database_Downloads/veg_data2014-09-11.gzip')
 
 trees <- result$tree
 sitecode_key <- read.csv("sitecode_key.csv")
@@ -119,6 +120,7 @@ names(trees) <- gsub('1haPlot', 'OnehaPlot', names(trees))
 
 # Add column with site codes
 trees$Site.CodeT <- gsub("-", "", str_extract(trees$OnehaPlotNumber,"-[a-zA-Z]*-"))
+trees$plot_ID_num <- str_extract(trees$OnehaPlotNumber, '[0-9]*$')
 
 # Manually clean data (prior to database cleaning) using corrected spellings from Tropicos
 # Duplicate tree genera

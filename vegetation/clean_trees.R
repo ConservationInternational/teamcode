@@ -16,7 +16,7 @@ library(stringr)
 #veg_data <- f.teamdb.query('vegetation')
 
 dir(".", pattern="veg_data")
-load('H:/Data/TEAM_Database_Downloads/veg_data2014-10-15.gzip')
+load('H:/Data/TEAM_Database_Downloads/veg_data2015-03-09.gzip')
 
 trees <- result$tree
 sitecode_key <- read.csv("sitecode_key.csv")
